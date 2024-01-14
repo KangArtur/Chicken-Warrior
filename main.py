@@ -5,17 +5,16 @@ import json
 
 
 window_size = width, height = 1080, 700
-FPS = 30
 MAPS_DIR = "data/maps"
 TILE_SIZE = 32
 free_tiles = [1, 2, 3, 4, 5, 24, 14, 25, 15, 44, 34, 45, 35,
               71, 72, 73, 81, 82, 83, 91, 92, 93, 54, 64]
 rr_am = 13
-ENEMY_EVENT_TYPE = 30
 
+FPS = 30
+ENEMY_EVENT_TYPE = 30
 ENEMY_HIT_DELAY = 300
 ENEMY_HIT = pygame.USEREVENT + 1
-
 
 class Room:
     def __init__(self, roomID, free_tiles):
@@ -236,6 +235,7 @@ class HayRoll(Enemy):
         super().__init__(position)
         self.change_pic("hay_roll/hay_roll_1.png")
         self.picID = "1"
+        self.hp = 3
         self.direction = [-1, -1]
 
     def set_direction(self, direction):
@@ -252,6 +252,9 @@ class Boss(Enemy):
         self.area = [(12, 8), (12, 7)]
         self.first_phase_state = 0
         self.fph_place = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
+        pygame.mixer.music.load("data/sound/Fever-Pitch.mp3")
+        pygame.mixer.music.set_volume(0.10)
+        pygame.mixer.music.play()
 
     def get_position(self):
         return self.area
@@ -461,6 +464,7 @@ class Game:
                 if enemy.hp > 115:
                     enemy.first_phase_move()
                 else:
+                    walking.play()
                     next_position = self.map.curr_room.crow_path(enemy.get_position()[0],
                                                                  player.get_position())
                     curr_position = enemy.get_position()[0]
@@ -484,7 +488,12 @@ class Game:
                 if enemy.hp <= 0:
                     if enemy.__class__.__name__ == "Boss":
                         self.map.curr_room.enemies = []
+                        pygame.mixer.music.stop()
                     else:
+                        if enemy.__class__.__name__ == "Crow":
+                            crow_death.play()
+                        else:
+                            hay_things_death.play()
                         self.map.curr_room.enemies.remove(enemy)
 
     def check_treasure_room(self):
@@ -493,10 +502,12 @@ class Game:
                 self.map.trsr_taken = True
                 new_weapon = list(self.weapon.types.keys())[random.randint(1, 4)]
                 self.weapon.set_curr_weapon(new_weapon)
+                treasure_open.play()
         if self.map.curr_room.roomID == "treasure_room_2.tmx":
             if self.map.curr_room.get_tile(self.player.get_position()) == 5:
                 self.map.heal_taken = True
-                self.player.hp = random.randint(5, 7)
+                self.player.hp = 7
+                treasure_open.play()
 
     def check_player_damage(self):
         crossed = False
@@ -524,6 +535,19 @@ if __name__ == '__main__':
 
     clock = pygame.time.Clock()
     hit_clock = pygame.time.Clock()
+
+    pygame.mixer.music.load("data/sound/Mort-s-Farm-Fun-Farm.mp3")
+    pygame.mixer.music.set_volume(0.25)
+    pygame.mixer.music.play()
+
+    crow_death = pygame.mixer.Sound("data/sound/crow_death.mp3")
+    hay_things_death = pygame.mixer.Sound("data/sound/hay_things_death.mp3")
+    player_damage = pygame.mixer.Sound("data/sound/player_damage.mp3")
+    player_death = pygame.mixer.Sound("data/sound/player_death.mp3")
+    treasure_open = pygame.mixer.Sound("data/sound/treasure_open.mp3")
+    attack_wave = pygame.mixer.Sound("data/sound/attack.mp3")
+    walking = pygame.mixer.Sound("data/sound/walking.mp3")
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -533,12 +557,16 @@ if __name__ == '__main__':
                 game.move_enemy()
             if event.type == ENEMY_HIT and game.check_player_damage():
                 game.player.hp -= 1
+                player_damage.play()
+                if game.player.hp <= 0:
+                    player_death.play()
         game.update_player()
         game.check_room()
         game.check_treasure_room()
         screen.fill((76, 173, 105))
         game.render(screen)
         if pygame.key.get_pressed()[pygame.K_SPACE]:
+            attack_wave.play()
             game.check_attack(screen)
             clock.tick(FPS - 10)
         pygame.display.flip()
