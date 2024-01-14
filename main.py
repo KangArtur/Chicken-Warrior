@@ -27,7 +27,7 @@ class Room:
                           for i in range(self.height)]
         self.free_tiles = free_tiles
         self.enemies = []
-        if roomID in ["start_room.tmx", "boss_room.tmx"]:
+        if roomID in ["start_room.tmx"]:
             self.enemies_am = 0
             self.clear = True
         else:
@@ -50,7 +50,7 @@ class Room:
     def is_free(self, position):
         return self.get_tile(position) in self.free_tiles
 
-    def find_path(self, start, target):
+    def crow_path(self, start, target):
         INF = 100
         x, y = start
         distance = [[INF] * self.width for _ in range(self.height)]
@@ -94,6 +94,14 @@ class Room:
                 changed_dir = True
         return next_x, next_y, new_direction, changed_dir
 
+    def boss_roll_path(self, start, direction):
+        new_direction = direction
+        next_x = start[0] + new_direction
+        if not self.is_free((next_x, start[1])):
+            new_direction = -new_direction
+            next_x = start[0] + new_direction
+        return next_x, start[1], new_direction
+
     def spawn_enemies(self):
         if self.clear or "treasure" in self.roomID:
             return
@@ -105,6 +113,12 @@ class Room:
                     self.enemies.append(Crow(data[1]))
                 if data[0] == "hay_roll":
                     self.enemies.append(HayRoll(data[1]))
+                if data[0] == "scarecrow":
+                    self.enemies.append(Boss(data[1]))
+                if data[0] == "boss_hay_roll":
+                    self.enemies.append(BossHayRoll(data[1]))
+                if data[0] == "boss_hayfork":
+                    self.enemies.append(BossHayfork(data[1]))
             self.enemies_am = len(self.enemies)
 
 
@@ -112,39 +126,36 @@ class LevelMap:
     def __init__(self, free_tiles):
         self.free_tiles = free_tiles
         self.id_map = [[f"room_{random.randint(1, rr_am)}", f"room_{random.randint(1, rr_am)}",
-                     f"room_{random.randint(1, rr_am)}", f"treasure_room_{random.randint(1, 2)}"],
+                     f"room_{random.randint(1, rr_am)}", f"treasure_room_1"],
                     ["start_room", f"room_{random.randint(1, rr_am)}",
-                     f"room_{random.randint(1, rr_am)}", "boss_room"],
+                     f"room_{random.randint(1, rr_am)}", "room_boss"],
                     [f"room_{random.randint(1, rr_am)}", f"room_{random.randint(1, rr_am)}",
-                     f"room_{random.randint(1, rr_am)}"]]
-        print(self.id_map)
+                     f"room_{random.randint(1, rr_am)}", f"treasure_room_2"]]
         self.map = [[Room(r + ".tmx", self.free_tiles) for r in row] for row in self.id_map]
         self.curr_room = self.map[1][0]
         self.cr_yx = (1, 0)
         self.map_tile_size = 48
         self.trsr_taken = False
+        self.heal_taken = False
 
     def render(self, screen):
         self.curr_room.render(screen)
         self.block_edges()
         self.treasure_taken()
+        map_net = pygame.image.load("data/images/map_net.png")
         clearCheck = {False: (76, 173, 105),
-                      True: (103, 239, 146),}
+                      True: (103, 239, 146)}
         for y in range(3):
             for x in range(4):
                 rect = pygame.Rect(x * self.map_tile_size + 852,
                                    y * self.map_tile_size + 80,
                                    self.map_tile_size, self.map_tile_size)
-                try:
-                    screen.fill(clearCheck[self.map[y][x].clear], rect)
-                    pygame.draw.rect(screen, (42, 99, 16), rect, 3)
-                except IndexError:
-                    continue
+                screen.fill(clearCheck[self.map[y][x].clear], rect)
+        screen.blit(map_net, (849, 77))
         icon = pygame.image.load("data/images/player/player_front.png")
         delta = (icon.get_width() - self.map_tile_size) // 2
         screen.blit(icon, ((self.cr_yx[1] * self.map_tile_size - delta + 852,
                            self.cr_yx[0] * self.map_tile_size - delta + 80)))
-
 
     def change_curr_room(self, position):
         self.cr_yx = (position[1], position[0])
@@ -168,13 +179,24 @@ class LevelMap:
             self.curr_room.tiles_map[8][0] = 21
             image = self.curr_room.map.get_tile_image(0, 6, 0)
             screen.blit(image, (20, 8 * TILE_SIZE + 20))
-        if self.cr_yx[1] + 1 not in range(3) and self.cr_yx not in [(1, 2), (0, 2)]:
+        if self.cr_yx[1] + 1 not in range(3):
             self.curr_room.tiles_map[8][24] = 23
             image = self.curr_room.map.get_tile_image(24, 6, 0)
             screen.blit(image, (24 * TILE_SIZE + 20, 8 * TILE_SIZE + 20))
+        if (clears >= 5 and self.cr_yx == (0, 2) or
+                clears >= 7 and self.cr_yx == (2, 2) or
+                clears >= 11 and self.cr_yx == (1, 2)):
+            self.curr_room.tiles_map[8][24] = 25
+            image = self.curr_room.map.get_tile_image(24, 8, 0)
+            screen.blit(image, (24 * TILE_SIZE + 20, 8 * TILE_SIZE + 20))
 
     def treasure_taken(self):
-        if self.trsr_taken and "treasure" in self.curr_room.roomID:
+        if self.trsr_taken and self.curr_room.roomID == "treasure_room_1.tmx":
+            self.curr_room.tiles_map[8][12] = 1
+            self.curr_room.clear = True
+            image = self.curr_room.map.get_tile_image(4, 8, 0)
+            screen.blit(image, (12 * TILE_SIZE + 20, 8 * TILE_SIZE + 20))
+        if self.heal_taken and self.curr_room.roomID == "treasure_room_2.tmx":
             self.curr_room.tiles_map[8][12] = 1
             self.curr_room.clear = True
             image = self.curr_room.map.get_tile_image(4, 8, 0)
@@ -199,9 +221,8 @@ class Enemy:
         self.image = pygame.image.load(f"data/images/enemy/{newpic}")
 
     def render(self, screen):
-        delta = (self.image.get_width() - TILE_SIZE) // 2
-        screen.blit(self.image, (self.x * TILE_SIZE - delta + 20,
-                                 self.y * TILE_SIZE - delta + 20))
+        screen.blit(self.image, (self.x * TILE_SIZE + 20,
+                                 self.y * TILE_SIZE + 20))
 
 
 class Crow(Enemy):
@@ -224,14 +245,72 @@ class HayRoll(Enemy):
 class Boss(Enemy):
     def __init__(self, position):
         super().__init__(position)
+        self.hp = 230
+        self.hp_image = pygame.image.load("data/images/enemy/scarecrow/scarecrow_hp.png")
+        self.bossbar_image = pygame.image.load("data/images/enemy/scarecrow/bossbar.png")
+        self.change_pic("scarecrow/scarecrow.png")
+        self.area = [(12, 8), (12, 7)]
+        self.first_phase_state = 0
+        self.fph_place = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
+
+    def get_position(self):
+        return self.area
+
+    def set_position(self, position):
+        self.x, self.y = position
+        self.area = [position, tuple([position[0], position[1] - 1])]
+
+    def first_phase_move(self):
+        newpos = (12 + self.fph_place[self.first_phase_state][0],
+                8 + self.fph_place[self.first_phase_state][1])
+        self.set_position(newpos)
+        self.first_phase_state += 1
+        self.first_phase_state = self.first_phase_state % 8
+
+    def render(self, screen):
+        screen.blit(self.image, (self.x * TILE_SIZE + 20,
+                                 (self.y - 1) * TILE_SIZE + 20))
+        for i in range(self.hp):
+            screen.blit(self.hp_image, (550 + i * 2, 590))
+        screen.blit(self.bossbar_image,(547, 587))
+
+
+class BossHayRoll(Enemy):
+    def __init__(self, position):
+        super().__init__(position)
+        self.change_pic("scarecrow/scarecrow_attack_2.png")
+        self.picID = "1"
+        self.direction = -1
+        self.hp = 999
+
+    def set_direction(self, direction):
+        self.direction = direction
+
+
+class BossHayfork(Enemy):
+    def __init__(self, position):
+        super().__init__(position)
+        self.state = 0
+        self.hp = 999
+        self.change_pic("scarecrow/hollow.png")
+
+    def check_state(self):
+        self.state += 1
+        self.state %= 15
+        if 0 <= self.state <= 4:
+            self.change_pic("scarecrow/hollow.png")
+        if 5 <= self.state <= 9:
+            self.change_pic("scarecrow/scarecrow_attack_warn.png")
+        if 10 <= self.state <= 14:
+            self.change_pic("scarecrow/scarecrow_attack_1.png")
 
 
 class Player:
     def __init__(self, position, pic):
         self.x, self.y = position
         self.image = pygame.image.load(f"data/images/player/{pic}")
-        self.hp_image = pygame.image.load(f"data/images/hp.png")
-        self.hp = 5
+        self.hp_image = pygame.image.load(f"data/images/player/hp.png")
+        self.hp = 6
         self.direction = "down"
 
     def get_position(self):
@@ -244,11 +323,10 @@ class Player:
         self.image = pygame.image.load(f"data/images/player/{newpic}")
 
     def render(self, screen):
-        delta = (self.image.get_width() - TILE_SIZE) // 2
-        screen.blit(self.image, (self.x * TILE_SIZE - delta + 20,
-                                 self.y * TILE_SIZE - delta + 20))
+        screen.blit(self.image, (self.x * TILE_SIZE + 20,
+                                 self.y * TILE_SIZE + 20))
         for i in range(self.hp):
-            screen.blit(self.hp_image, (40 + i * 84, 590))
+            screen.blit(self.hp_image, (20 + i * 70, 590))
 
 
 class Weapon:
@@ -286,20 +364,13 @@ class Weapon:
         elif direction == "up":
             attack_area = [[self.x + i[0], self.y + i[1]] for i in self.types[self.type]["-y_area"]]
             shown_im = pygame.transform.rotate(self.attack_im, 0)
-
-        """for a in attack_area:
-            x, y = a[0], a[1]
-            rect = pygame.Rect(x * TILE_SIZE + 20,
-                                   y * TILE_SIZE + 20,
-                                   TILE_SIZE, TILE_SIZE)
-            pygame.draw.rect(screen, pygame.Color("white"), rect, 1)"""
-
         screen.blit(shown_im, (attack_area[0][0] * TILE_SIZE + 20,
                                attack_area[0][1] * TILE_SIZE + 20))
         return [tuple(i) for i in attack_area]
 
     def render(self, screen):
         screen.blit(self.info_im, (833, 300))
+
 
 class Game:
     def __init__(self, player, map, weapon):
@@ -340,6 +411,9 @@ class Game:
         if pygame.key.get_pressed()[pygame.K_SPACE]:
             area = self.weapon.attack(self.player.direction, screen)
             for enemy in self.map.curr_room.enemies:
+                if enemy.__class__.__name__ == "Boss":
+                    if any([i in area for i in enemy.get_position()]):
+                        enemy.hp -= self.weapon.damage
                 if enemy.get_position() in area:
                     enemy.hp -= self.weapon.damage
 
@@ -361,7 +435,7 @@ class Game:
     def move_enemy(self):
         for enemy in self.map.curr_room.enemies:
             if enemy.__class__.__name__ == "Crow":
-                next_position = self.map.curr_room.find_path(enemy.get_position(),
+                next_position = self.map.curr_room.crow_path(enemy.get_position(),
                                                              player.get_position())
                 curr_position = enemy.get_position()
                 if next_position[1] > curr_position[1]:
@@ -383,6 +457,24 @@ class Game:
                     enemy.picID = ["", "2", "1"][int(enemy.picID)]
                     enemy.change_pic(f"hay_roll/hay_roll_{enemy.picID}.png")
                 enemy.set_position((next_x, next_y))
+            elif enemy.__class__.__name__ == "Boss":
+                if enemy.hp > 115:
+                    enemy.first_phase_move()
+                else:
+                    next_position = self.map.curr_room.crow_path(enemy.get_position()[0],
+                                                                 player.get_position())
+                    curr_position = enemy.get_position()[0]
+                    if next_position[0] > curr_position[0]:
+                        enemy.change_pic("scarecrow/scarecrow_3.png")
+                    elif next_position[0] <= curr_position[0]:
+                        enemy.change_pic("scarecrow/scarecrow_2.png")
+                    enemy.set_position(next_position)
+            elif enemy.__class__.__name__ == "BossHayRoll":
+                next_x, next_y, direction = self.map.curr_room.boss_roll_path(enemy.get_position(), enemy.direction)
+                enemy.set_direction(direction)
+                enemy.set_position((next_x, next_y))
+            elif enemy.__class__.__name__ == "BossHayfork":
+                enemy.check_state()
 
     def check_room(self):
         if not self.map.curr_room.clear:
@@ -390,17 +482,34 @@ class Game:
                 self.map.curr_room.clear = True
             for enemy in self.map.curr_room.enemies:
                 if enemy.hp <= 0:
-                    self.map.curr_room.enemies.remove(enemy)
+                    if enemy.__class__.__name__ == "Boss":
+                        self.map.curr_room.enemies = []
+                    else:
+                        self.map.curr_room.enemies.remove(enemy)
 
     def check_treasure_room(self):
-        if "treasure" in self.map.curr_room.roomID:
+        if self.map.curr_room.roomID == "treasure_room_1.tmx":
             if self.map.curr_room.get_tile(self.player.get_position()) == 5:
                 self.map.trsr_taken = True
                 new_weapon = list(self.weapon.types.keys())[random.randint(1, 4)]
                 self.weapon.set_curr_weapon(new_weapon)
+        if self.map.curr_room.roomID == "treasure_room_2.tmx":
+            if self.map.curr_room.get_tile(self.player.get_position()) == 5:
+                self.map.heal_taken = True
+                self.player.hp = random.randint(5, 7)
 
     def check_player_damage(self):
-        return self.player.get_position() in [enemy.get_position() for enemy in self.map.curr_room.enemies]
+        crossed = False
+        for i in self.map.curr_room.enemies:
+            if i.__class__.__name__ == "Boss":
+                crossed = self.player.get_position() in [j for j in i.get_position()]
+            elif i.__class__.__name__ == "BossHayfork":
+                crossed = 10 <= i.state <= 14 and self.player.get_position() == i.get_position()
+            else:
+                crossed = self.player.get_position() == i.get_position()
+            if crossed:
+                return crossed
+        return crossed
 
 
 if __name__ == '__main__':
