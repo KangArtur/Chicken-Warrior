@@ -4,7 +4,7 @@ import random
 import json
 
 
-window_size = width, height = 1080, 700
+WINDOW_SIZE = WIDTH, HEIGHT = 1080, 700
 MAPS_DIR = "data/maps"
 TILE_SIZE = 32
 free_tiles = [1, 2, 3, 4, 5, 24, 14, 25, 15, 44, 34, 45, 35,
@@ -340,6 +340,7 @@ class Weapon:
         self.attack_area = []
         self.x = position[0]
         self.y = position[1]
+        self.im_id = 1
 
     def set_curr_weapon(self, type):
         self.type = type
@@ -355,6 +356,12 @@ class Weapon:
         self.y = position[1]
 
     def attack(self, direction, screen):
+        if self.im_id == 1:
+            self.attack_im = pygame.image.load(f"data/weapon/{self.type}_attack.png")
+            self.im_id = abs(self.im_id - 1)
+        elif self.im_id == 0:
+            self.attack_im = pygame.image.load(f"data/weapon/{self.type}_attack_2.png")
+            self.im_id = abs(self.im_id - 1)
         if direction == "left":
             attack_area = [[self.x + i[0], self.y + i[1]] for i in self.types[self.type]["-x_area"]]
             shown_im = pygame.transform.rotate(self.attack_im, 90)
@@ -373,6 +380,25 @@ class Weapon:
 
     def render(self, screen):
         screen.blit(self.info_im, (833, 300))
+
+
+class Particle(pygame.sprite.Sprite):
+    def __init__(self, pos, dx, dy, particle, border_rect):
+        super().__init__(all_sprites)
+        self.particle = [pygame.image.load(f"data/images/particles/{particle}_particle.png")]
+        for scale in (1, 3, 5):
+            self.particle.append(pygame.transform.scale(self.particle[0], (scale, scale)))
+        self.image = random.choice(self.particle)
+        self.rect = self.image.get_rect()
+        self.velocity = [dx, dy]
+        self.rect.x, self.rect.y = pos
+        self.border_rect = border_rect
+
+    def update(self):
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        if not self.rect.colliderect(self.border_rect):
+            self.kill()
 
 
 class Game:
@@ -488,12 +514,27 @@ class Game:
                 if enemy.hp <= 0:
                     if enemy.__class__.__name__ == "Boss":
                         self.map.curr_room.enemies = []
-                        pygame.mixer.music.stop()
+                        pygame.mixer.music.fadeout(1)
+                        hay_things_death.set_volume(2)
+                        hay_things_death.play()
+                        particles_pos = (enemy.get_position()[0][0] * TILE_SIZE + TILE_SIZE,
+                                         enemy.get_position()[0][1] * TILE_SIZE + TILE_SIZE)
+                        particles_rect = pygame.Rect(enemy.get_position()[0][0] * TILE_SIZE,
+                                                     enemy.get_position()[0][1] * TILE_SIZE,
+                                                     2 * TILE_SIZE, 3 * TILE_SIZE)
+                        self.create_particles(particles_pos, "hay", particles_rect, 30)
                     else:
+                        particles_pos = (enemy.get_position()[0] * TILE_SIZE + TILE_SIZE,
+                                         enemy.get_position()[1] * TILE_SIZE + TILE_SIZE)
+                        particles_rect = pygame.Rect(enemy.get_position()[0] * TILE_SIZE,
+                                                     enemy.get_position()[1] * TILE_SIZE,
+                                                     2 * TILE_SIZE, 2 * TILE_SIZE)
                         if enemy.__class__.__name__ == "Crow":
                             crow_death.play()
+                            self.create_particles(particles_pos, "crow", particles_rect, 10)
                         else:
                             hay_things_death.play()
+                            self.create_particles(particles_pos, "hay", particles_rect, 10)
                         self.map.curr_room.enemies.remove(enemy)
 
     def check_treasure_room(self):
@@ -519,36 +560,52 @@ class Game:
             else:
                 crossed = self.player.get_position() == i.get_position()
             if crossed:
+                particles_pos = (self.player.get_position()[0] * TILE_SIZE + TILE_SIZE,
+                                 self.player.get_position()[1] * TILE_SIZE + TILE_SIZE)
+                particles_rect = pygame.Rect(self.player.get_position()[0] * TILE_SIZE,
+                                             self.player.get_position()[1] * TILE_SIZE,
+                                             2 * TILE_SIZE, 2 * TILE_SIZE)
+                if self.player.hp == 1:
+                    self.create_particles(particles_pos, "chicken", particles_rect, 30)
+                else:
+                    self.create_particles(particles_pos, "chicken", particles_rect, 10)
                 return crossed
         return crossed
 
+    def create_particles(self, position, particle, border_rect, count):
+        particle_count = count
+        numbers = list(range(-5, -1)) + list(range(1, 6))
+        for _ in range(particle_count):
+            Particle(position, random.choice(numbers), random.choice(numbers), particle, border_rect)
 
-if __name__ == '__main__':
-    pygame.init()
-    screen = pygame.display.set_mode(window_size)
-    pygame.time.set_timer(ENEMY_HIT, ENEMY_HIT_DELAY)
 
-    map = LevelMap(free_tiles)
-    player = Player((12, 8), "player_front.png")
-    weapon = Weapon(player.get_position())
-    game = Game(player, map, weapon)
+def title(screen):
+    screens = 2
 
-    clock = pygame.time.Clock()
-    hit_clock = pygame.time.Clock()
+    while screens != 0:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                screens = 0
+                pygame.quit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    screens -= 1
+        if screens == 2:
+            image = pygame.image.load("data/images/title.png")
+        elif screens == 1:
+            image = pygame.image.load("data/images/tutorial.png")
+        screen.blit(image, (0, 0))
+        pygame.display.flip()
+
+
+def main():
 
     pygame.mixer.music.load("data/sound/Mort-s-Farm-Fun-Farm.mp3")
     pygame.mixer.music.set_volume(0.25)
     pygame.mixer.music.play()
 
-    crow_death = pygame.mixer.Sound("data/sound/crow_death.mp3")
-    hay_things_death = pygame.mixer.Sound("data/sound/hay_things_death.mp3")
-    player_damage = pygame.mixer.Sound("data/sound/player_damage.mp3")
-    player_death = pygame.mixer.Sound("data/sound/player_death.mp3")
-    treasure_open = pygame.mixer.Sound("data/sound/treasure_open.mp3")
-    attack_wave = pygame.mixer.Sound("data/sound/attack.mp3")
-    walking = pygame.mixer.Sound("data/sound/walking.mp3")
-
     running = True
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -565,10 +622,39 @@ if __name__ == '__main__':
         game.check_treasure_room()
         screen.fill((76, 173, 105))
         game.render(screen)
+        all_sprites.update()
         if pygame.key.get_pressed()[pygame.K_SPACE]:
             attack_wave.play()
             game.check_attack(screen)
             clock.tick(FPS - 10)
+        all_sprites.draw(screen)
         pygame.display.flip()
         clock.tick(FPS)
+
+
+if __name__ == '__main__':
+    pygame.init()
+    screen = pygame.display.set_mode(WINDOW_SIZE)
+    pygame.time.set_timer(ENEMY_HIT, ENEMY_HIT_DELAY)
+    all_sprites = pygame.sprite.Group()
+    clock = pygame.time.Clock()
+    hit_clock = pygame.time.Clock()
+
+    title(screen)
+
+    map = LevelMap(free_tiles)
+    player = Player((12, 8), "player_front.png")
+    weapon = Weapon(player.get_position())
+    game = Game(player, map, weapon)
+
+    crow_death = pygame.mixer.Sound("data/sound/crow_death.mp3")
+    hay_things_death = pygame.mixer.Sound("data/sound/hay_things_death.mp3")
+    player_damage = pygame.mixer.Sound("data/sound/player_damage.mp3")
+    player_death = pygame.mixer.Sound("data/sound/player_death.mp3")
+    treasure_open = pygame.mixer.Sound("data/sound/treasure_open.mp3")
+    attack_wave = pygame.mixer.Sound("data/sound/attack.mp3")
+    walking = pygame.mixer.Sound("data/sound/walking.mp3")
+
+    main()
+
     pygame.quit()

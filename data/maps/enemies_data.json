@@ -16,7 +16,7 @@
   "13": [["hay_roll", [12, 8]], ["hay_roll", [9, 11]]],
   "14": [["hay_roll", [18, 11]], ["crow", [12, 8]]],
   "15": [["hay_roll", [5, 12]], ["hay_roll", [21, 4]], ["crow", [12, 8]]],
-  "boss": [["scarecrow", [12, 8]], ["boss_hay_roll", [23, 5]], ["boss_hay_roll", [1, 11]],
+  "boss": [["boss_hay_roll", [23, 5]], ["boss_hay_roll", [1, 11]],
     ["boss_hayfork", [10, 9]], ["boss_hayfork", [10, 8]], ["boss_hayfork", [10, 7]], ["boss_hayfork", [11, 6]],
     ["boss_hayfork", [12, 6]], ["boss_hayfork", [13, 6]], ["boss_hayfork", [14, 7]], ["boss_hayfork", [14, 8]],
     ["boss_hayfork", [14, 9]], ["boss_hayfork", [11, 10]], ["boss_hayfork", [12, 10]], ["boss_hayfork", [13, 10]],
@@ -27,5 +27,6 @@
     ["boss_hayfork", [21, 10]], ["boss_hayfork", [19, 12]], ["boss_hayfork", [23, 12]], ["boss_hayfork", [21, 14]],
     ["boss_hayfork", [19, 8]], ["boss_hayfork", [17, 6]], ["boss_hayfork", [17, 10]], ["boss_hayfork", [11, 4]],
     ["boss_hayfork", [13, 4]], ["boss_hayfork", [12, 4]], ["boss_hayfork", [11, 12]], ["boss_hayfork", [12, 12]],
-    ["boss_hayfork", [13, 12]], ["crow", [3, 4]], ["crow", [3, 12]], ["crow", [21, 4]], ["crow", [21, 12]]]
+    ["boss_hayfork", [13, 12]], ["crow", [3, 4]], ["crow", [3, 12]], ["crow", [21, 4]], ["crow", [21, 12]],
+    ["scarecrow", [12, 8]]]
 }
