@@ -3,18 +3,19 @@ import pytmx
 import random
 import json
 
-
 WINDOW_SIZE = WIDTH, HEIGHT = 1080, 700
 MAPS_DIR = "data/maps"
+PLAYER_DIR = "data/images/player"
+WEAPON_DIR = "data/weapon"
+
 TILE_SIZE = 32
-free_tiles = [1, 2, 3, 4, 5, 24, 14, 25, 15, 44, 34, 45, 35,
+FREE_TILES = [1, 2, 3, 4, 5, 24, 14, 25, 15, 44, 34, 45, 35,
               71, 72, 73, 81, 82, 83, 91, 92, 93, 54, 64]
-rr_am = 13
+RR_AM = 15  # random rooms amount
 
 FPS = 30
 ENEMY_EVENT_TYPE = 30
-ENEMY_HIT_DELAY = 300
-ENEMY_HIT = pygame.USEREVENT + 1
+
 
 class Room:
     def __init__(self, roomID, free_tiles):
@@ -124,12 +125,12 @@ class Room:
 class LevelMap:
     def __init__(self, free_tiles):
         self.free_tiles = free_tiles
-        self.id_map = [[f"room_{random.randint(1, rr_am)}", f"room_{random.randint(1, rr_am)}",
-                     f"room_{random.randint(1, rr_am)}", f"treasure_room_1"],
-                    ["start_room", f"room_{random.randint(1, rr_am)}",
-                     f"room_{random.randint(1, rr_am)}", "room_boss"],
-                    [f"room_{random.randint(1, rr_am)}", f"room_{random.randint(1, rr_am)}",
-                     f"room_{random.randint(1, rr_am)}", f"treasure_room_2"]]
+        self.id_map = [[f"room_{random.randint(1, RR_AM)}", f"room_{random.randint(1, RR_AM)}",
+                        f"room_{random.randint(1, RR_AM)}", f"treasure_room_1"],
+                       ["start_room", f"room_{random.randint(1, RR_AM)}",
+                        f"room_{random.randint(1, RR_AM)}", "room_boss"],
+                       [f"room_{random.randint(1, RR_AM)}", f"room_{random.randint(1, RR_AM)}",
+                        f"room_{random.randint(1, RR_AM)}", f"treasure_room_2"]]
         self.map = [[Room(r + ".tmx", self.free_tiles) for r in row] for row in self.id_map]
         self.curr_room = self.map[1][0]
         self.cr_yx = (1, 0)
@@ -151,10 +152,10 @@ class LevelMap:
                                    self.map_tile_size, self.map_tile_size)
                 screen.fill(clearCheck[self.map[y][x].clear], rect)
         screen.blit(map_net, (849, 77))
-        icon = pygame.image.load("data/images/player/player_front.png")
+        icon = pygame.image.load(f"{PLAYER_DIR}/player_front.png")
         delta = (icon.get_width() - self.map_tile_size) // 2
         screen.blit(icon, ((self.cr_yx[1] * self.map_tile_size - delta + 852,
-                           self.cr_yx[0] * self.map_tile_size - delta + 80)))
+                            self.cr_yx[0] * self.map_tile_size - delta + 80)))
 
     def change_curr_room(self, position):
         self.cr_yx = (position[1], position[0])
@@ -206,7 +207,7 @@ class Enemy:
     def __init__(self, position):
         self.hp = 5
         self.x, self.y = position
-        self.image = pygame.image.load(f"data/images/player/player_front.png")
+        self.image = pygame.image.load(f"{PLAYER_DIR}/player_front.png")
         self.delay = 250
         pygame.time.set_timer(ENEMY_EVENT_TYPE, self.delay)
 
@@ -252,9 +253,6 @@ class Boss(Enemy):
         self.area = [(12, 8), (12, 7)]
         self.first_phase_state = 0
         self.fph_place = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
-        pygame.mixer.music.load("data/sound/Fever-Pitch.mp3")
-        pygame.mixer.music.set_volume(0.10)
-        pygame.mixer.music.play()
 
     def get_position(self):
         return self.area
@@ -265,7 +263,7 @@ class Boss(Enemy):
 
     def first_phase_move(self):
         newpos = (12 + self.fph_place[self.first_phase_state][0],
-                8 + self.fph_place[self.first_phase_state][1])
+                  8 + self.fph_place[self.first_phase_state][1])
         self.set_position(newpos)
         self.first_phase_state += 1
         self.first_phase_state = self.first_phase_state % 8
@@ -275,7 +273,7 @@ class Boss(Enemy):
                                  (self.y - 1) * TILE_SIZE + 20))
         for i in range(self.hp):
             screen.blit(self.hp_image, (550 + i * 2, 590))
-        screen.blit(self.bossbar_image,(547, 587))
+        screen.blit(self.bossbar_image, (547, 587))
 
 
 class BossHayRoll(Enemy):
@@ -329,12 +327,12 @@ class Player:
         screen.blit(self.image, (self.x * TILE_SIZE + 20,
                                  self.y * TILE_SIZE + 20))
         for i in range(self.hp):
-            screen.blit(self.hp_image, (20 + i * 70, 590))
+            screen.blit(self.hp_image, (20 + i * 50, 590))
 
 
 class Weapon:
     def __init__(self, position):
-        with open("data/weapon/weapons_data.json") as f:
+        with open(f"{WEAPON_DIR}/weapons_data.json") as f:
             self.types = json.load(f)
         self.set_curr_weapon("sword")
         self.attack_area = []
@@ -347,8 +345,8 @@ class Weapon:
         self.damage = self.types[type]["atk"]
         self.x_area = self.types[type]["x_area"]
         self.y_area = self.types[type]["y_area"]
-        self.attack_im = pygame.image.load(f"data/weapon/{self.type}_attack.png")
-        self.info_im = pygame.image.load(f"data/weapon/{self.type}_info.png")
+        self.attack_im = pygame.image.load(f"{WEAPON_DIR}/{self.type}_attack.png")
+        self.info_im = pygame.image.load(f"{WEAPON_DIR}/{self.type}_info.png")
         self.info_im = pygame.transform.scale(self.info_im, (230, 230))
 
     def set_position(self, position):
@@ -357,10 +355,10 @@ class Weapon:
 
     def attack(self, direction, screen):
         if self.im_id == 1:
-            self.attack_im = pygame.image.load(f"data/weapon/{self.type}_attack.png")
+            self.attack_im = pygame.image.load(f"{WEAPON_DIR}/{self.type}_attack.png")
             self.im_id = abs(self.im_id - 1)
         elif self.im_id == 0:
-            self.attack_im = pygame.image.load(f"data/weapon/{self.type}_attack_2.png")
+            self.attack_im = pygame.image.load(f"{WEAPON_DIR}/{self.type}_attack_2.png")
             self.im_id = abs(self.im_id - 1)
         if direction == "left":
             attack_area = [[self.x + i[0], self.y + i[1]] for i in self.types[self.type]["-x_area"]]
@@ -406,6 +404,9 @@ class Game:
         self.player = player
         self.map = map
         self.weapon = weapon
+        self.boss_music_start = False
+        self.boss_defeated = False
+        self.score = 0
 
     def render(self, screen):
         self.map.render(screen)
@@ -413,6 +414,9 @@ class Game:
         self.weapon.render(screen)
 
     def update_player(self):
+        if self.player.hp <= 0:
+            self.player.change_pic("hollow.png")
+            return
         next_x, next_y = self.player.get_position()
         if pygame.key.get_pressed()[pygame.K_a] or pygame.key.get_pressed()[pygame.K_LEFT]:
             self.player.change_pic("player_left.png")
@@ -437,6 +441,8 @@ class Game:
         self.check_move()
 
     def check_attack(self, screen):
+        if self.player.hp <= 0:
+            return
         if pygame.key.get_pressed()[pygame.K_SPACE]:
             area = self.weapon.attack(self.player.direction, screen)
             for enemy in self.map.curr_room.enemies:
@@ -462,6 +468,8 @@ class Game:
             self.player.set_position((1, 8))
 
     def move_enemy(self):
+        if self.player.hp <= 0:
+            return
         for enemy in self.map.curr_room.enemies:
             if enemy.__class__.__name__ == "Crow":
                 next_position = self.map.curr_room.crow_path(enemy.get_position(),
@@ -480,7 +488,7 @@ class Game:
                 enemy.set_position(next_position)
             elif enemy.__class__.__name__ == "HayRoll":
                 next_x, next_y, new_direction, changed_dir = self.map.curr_room.roll_path(enemy.get_position(),
-                                                             enemy.direction)
+                                                                                          enemy.direction)
                 enemy.set_direction(new_direction)
                 if changed_dir:
                     enemy.picID = ["", "2", "1"][int(enemy.picID)]
@@ -490,7 +498,6 @@ class Game:
                 if enemy.hp > 115:
                     enemy.first_phase_move()
                 else:
-                    walking.play()
                     next_position = self.map.curr_room.crow_path(enemy.get_position()[0],
                                                                  player.get_position())
                     curr_position = enemy.get_position()[0]
@@ -507,14 +514,23 @@ class Game:
                 enemy.check_state()
 
     def check_room(self):
+        if not self.boss_music_start and self.map.cr_yx == (1, 3):
+            self.boss_music_start = True
+            pygame.mixer.music.load("data/sound/Fever-Pitch.mp3")
+            pygame.mixer.music.set_volume(0.10)
+            pygame.mixer.music.play()
+
         if not self.map.curr_room.clear:
             if len(self.map.curr_room.enemies) == 0 and "treasure" not in self.map.curr_room.roomID:
                 self.map.curr_room.clear = True
+                if "boss" not in self.map.curr_room.roomID:
+                    with open("data/maps/enemies_data.json") as f:
+                        enemies_data = json.load(f)
+                        self.score += len(enemies_data[self.map.curr_room.roomID[5:-4]]) * 1000
             for enemy in self.map.curr_room.enemies:
                 if enemy.hp <= 0:
                     if enemy.__class__.__name__ == "Boss":
                         self.map.curr_room.enemies = []
-                        pygame.mixer.music.fadeout(1)
                         hay_things_death.set_volume(2)
                         hay_things_death.play()
                         particles_pos = (enemy.get_position()[0][0] * TILE_SIZE + TILE_SIZE,
@@ -523,6 +539,11 @@ class Game:
                                                      enemy.get_position()[0][1] * TILE_SIZE,
                                                      2 * TILE_SIZE, 3 * TILE_SIZE)
                         self.create_particles(particles_pos, "hay", particles_rect, 30)
+                        pygame.mixer.music.load("data/sound/boss_defeated.mp3")
+                        pygame.mixer.music.set_volume(0.10)
+                        pygame.mixer.music.play()
+                        self.score += 1000 * player.hp
+                        self.boss_defeated = True
                     else:
                         particles_pos = (enemy.get_position()[0] * TILE_SIZE + TILE_SIZE,
                                          enemy.get_position()[1] * TILE_SIZE + TILE_SIZE)
@@ -547,10 +568,12 @@ class Game:
         if self.map.curr_room.roomID == "treasure_room_2.tmx":
             if self.map.curr_room.get_tile(self.player.get_position()) == 5:
                 self.map.heal_taken = True
-                self.player.hp = 7
+                self.player.hp = random.randint(6, 9)
                 treasure_open.play()
 
     def check_player_damage(self):
+        if self.player.hp <= 0:
+            return False
         crossed = False
         for i in self.map.curr_room.enemies:
             if i.__class__.__name__ == "Boss":
@@ -560,15 +583,6 @@ class Game:
             else:
                 crossed = self.player.get_position() == i.get_position()
             if crossed:
-                particles_pos = (self.player.get_position()[0] * TILE_SIZE + TILE_SIZE,
-                                 self.player.get_position()[1] * TILE_SIZE + TILE_SIZE)
-                particles_rect = pygame.Rect(self.player.get_position()[0] * TILE_SIZE,
-                                             self.player.get_position()[1] * TILE_SIZE,
-                                             2 * TILE_SIZE, 2 * TILE_SIZE)
-                if self.player.hp == 1:
-                    self.create_particles(particles_pos, "chicken", particles_rect, 30)
-                else:
-                    self.create_particles(particles_pos, "chicken", particles_rect, 10)
                 return crossed
         return crossed
 
@@ -580,30 +594,44 @@ class Game:
 
 
 def title(screen):
-    screens = 2
+    screens = 4
+
+    pygame.mixer.music.load("data/sound/Main-Menu-3-Snowdin.mp3")
+    pygame.mixer.music.set_volume(1)
+    pygame.mixer.music.play()
 
     while screens != 0:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 screens = 0
                 pygame.quit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:
-                    screens -= 1
-        if screens == 2:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_f:
+                     screens -= 1
+        if screens == 4:
             image = pygame.image.load("data/images/title.png")
+        elif screens == 3:
+            image = pygame.image.load("data/images/tutorial_1.png")
+        elif screens == 2:
+            image = pygame.image.load("data/images/tutorial_2.png")
         elif screens == 1:
-            image = pygame.image.load("data/images/tutorial.png")
+            image = pygame.image.load("data/images/tutorial_3.png")
         screen.blit(image, (0, 0))
         pygame.display.flip()
 
 
 def main():
-
     pygame.mixer.music.load("data/sound/Mort-s-Farm-Fun-Farm.mp3")
     pygame.mixer.music.set_volume(0.25)
     pygame.mixer.music.play()
 
+    waiting = 0
+    start_waiting = False
+
+    cooldown = 0
+    waiting_cooldown = False
+
+    game_over = False
     running = True
 
     while running:
@@ -612,11 +640,26 @@ def main():
                 running = False
             if event.type == ENEMY_EVENT_TYPE:
                 game.move_enemy()
-            if event.type == ENEMY_HIT and game.check_player_damage():
-                game.player.hp -= 1
-                player_damage.play()
+            if game.check_player_damage():
+                if not waiting_cooldown:
+                    game.player.hp -= 1
+                    if game.score - 500 >= 0:
+                        game.score -= 500
+                    particles_pos = (game.player.get_position()[0] * TILE_SIZE + TILE_SIZE,
+                                     game.player.get_position()[1] * TILE_SIZE + TILE_SIZE)
+                    particles_rect = pygame.Rect(game.player.get_position()[0] * TILE_SIZE,
+                                                 game.player.get_position()[1] * TILE_SIZE,
+                                                 2 * TILE_SIZE, 2 * TILE_SIZE)
+                    game.create_particles(particles_pos, "chicken", particles_rect, 10)
+                    player_damage.play()
+                    waiting_cooldown = True
                 if game.player.hp <= 0:
                     player_death.play()
+                    game_over = True
+                    pygame.mixer.music.stop()
+                    start_waiting = True
+        if game.boss_defeated:
+            start_waiting = True
         game.update_player()
         game.check_room()
         game.check_treasure_room()
@@ -624,37 +667,83 @@ def main():
         game.render(screen)
         all_sprites.update()
         if pygame.key.get_pressed()[pygame.K_SPACE]:
-            attack_wave.play()
-            game.check_attack(screen)
-            clock.tick(FPS - 10)
+            if game.player.hp > 0:
+                attack_wave.play()
+                game.check_attack(screen)
+                clock.tick(FPS - 10)
         all_sprites.draw(screen)
+        if start_waiting:
+            waiting += 1
+            if waiting >= 50:
+                running = False
+        if waiting_cooldown:
+            cooldown += 1
+            if cooldown >= 10:
+                cooldown = 0
+                waiting_cooldown = False
         pygame.display.flip()
         clock.tick(FPS)
+
+    running_endscreen = True
+
+    if game_over:
+        pygame.mixer.music.load("data/sound/game_over.mp3")
+        pygame.mixer.music.play()
+        image = pygame.image.load("data/images/game_over.png")
+    else:
+        print("damn good :)")
+
+    while running_endscreen:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_f:
+                    running_endscreen = False
+        screen.blit(image, (0, 0))
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def start_game(screen):
+    will_replay = True
+
+    title(screen)
+
+    while will_replay:
+        main()
+
+        global map, player, weapon, game
+        map = LevelMap(FREE_TILES)
+        player = Player((12, 8), "player_front.png")
+        weapon = Weapon(player.get_position())
+        game = Game(player, map, weapon)
+
+
+def sound_file(name):
+    return f"data/sound/{name}.mp3"
 
 
 if __name__ == '__main__':
     pygame.init()
     screen = pygame.display.set_mode(WINDOW_SIZE)
-    pygame.time.set_timer(ENEMY_HIT, ENEMY_HIT_DELAY)
     all_sprites = pygame.sprite.Group()
     clock = pygame.time.Clock()
     hit_clock = pygame.time.Clock()
 
-    title(screen)
-
-    map = LevelMap(free_tiles)
+    map = LevelMap(FREE_TILES)
     player = Player((12, 8), "player_front.png")
     weapon = Weapon(player.get_position())
     game = Game(player, map, weapon)
 
-    crow_death = pygame.mixer.Sound("data/sound/crow_death.mp3")
-    hay_things_death = pygame.mixer.Sound("data/sound/hay_things_death.mp3")
-    player_damage = pygame.mixer.Sound("data/sound/player_damage.mp3")
-    player_death = pygame.mixer.Sound("data/sound/player_death.mp3")
-    treasure_open = pygame.mixer.Sound("data/sound/treasure_open.mp3")
-    attack_wave = pygame.mixer.Sound("data/sound/attack.mp3")
-    walking = pygame.mixer.Sound("data/sound/walking.mp3")
+    crow_death = pygame.mixer.Sound(sound_file("crow_death"))
+    hay_things_death = pygame.mixer.Sound(sound_file("hay_things_death"))
+    player_damage = pygame.mixer.Sound(sound_file("player_damage"))
+    player_death = pygame.mixer.Sound(sound_file("player_death"))
+    treasure_open = pygame.mixer.Sound(sound_file("treasure_open"))
+    attack_wave = pygame.mixer.Sound(sound_file("attack"))
+    walking = pygame.mixer.Sound(sound_file("walking"))
 
-    main()
+    start_game(screen)
 
     pygame.quit()
