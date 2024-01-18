@@ -2,6 +2,7 @@ import pygame
 import pytmx
 import random
 import json
+import sys
 
 WINDOW_SIZE = WIDTH, HEIGHT = 1080, 700
 MAPS_DIR = "data/maps"
@@ -634,8 +635,7 @@ def title(screen):
     while screens != 0:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                screens = 0
-                pygame.quit()
+                sys.exit(0)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_f:
                      screens -= 1
@@ -670,8 +670,7 @@ def main():
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
-                pygame.quit()
+                sys.exit(0)
             if event.type == ENEMY_EVENT_TYPE:
                 game.move_enemy()
             if game.check_player_damage():
@@ -732,7 +731,7 @@ def main():
     while running_endscreen:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
+                sys.exit(0)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_f:
                     running_endscreen = False
