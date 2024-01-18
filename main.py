@@ -6,7 +6,7 @@ import json
 WINDOW_SIZE = WIDTH, HEIGHT = 1080, 700
 MAPS_DIR = "data/maps"
 PLAYER_DIR = "data/images/player"
-WEAPON_DIR = "data/weapon"
+WEAPON_DIR = "data/images/weapon"
 
 TILE_SIZE = 32
 FREE_TILES = [1, 2, 3, 4, 5, 24, 14, 25, 15, 44, 34, 45, 35,
@@ -16,7 +16,7 @@ RR_AM = 15  # random rooms amount
 FPS = 30
 ENEMY_EVENT_TYPE = 30
 
-
+"""Класс, реализующий комнату, в которой на данный момент находится игрок"""
 class Room:
     def __init__(self, roomID, free_tiles):
         self.map = pytmx.load_pygame(f"{MAPS_DIR}/{roomID}")
@@ -50,6 +50,7 @@ class Room:
     def is_free(self, position):
         return self.get_tile(position) in self.free_tiles
 
+    """Вычисление пути вороны и босса (вторая фаза) - преследование игрока"""
     def crow_path(self, start, target):
         INF = 100
         x, y = start
@@ -73,6 +74,7 @@ class Room:
             x, y = prev[y][x]
         return x, y
 
+    """Вычисление пути катящегося стога сена - по диагоналям"""
     def roll_path(self, start, direction):
         curr_direction = direction.copy()
         new_direction = curr_direction.copy()
@@ -94,6 +96,7 @@ class Room:
                 changed_dir = True
         return next_x, next_y, new_direction, changed_dir
 
+    """Вычисление пути стога сена из комнаты босса - по горизонтали"""
     def boss_roll_path(self, start, direction):
         new_direction = direction
         next_x = start[0] + new_direction
@@ -102,6 +105,8 @@ class Room:
             next_x = start[0] + new_direction
         return next_x, start[1], new_direction
 
+    """Спавн всех врагов комнаты (если она еще не зачищена или не является конматой без врагов)
+    Вся информация о враге: тип врага и место спавна - берутся из специального файла json"""
     def spawn_enemies(self):
         if self.clear or "treasure" in self.roomID:
             return
@@ -122,6 +127,8 @@ class Room:
             self.enemies_am = len(self.enemies)
 
 
+"""Класс, инициализирующий всю карту игры, выбирает случайные комнаты, содержит некоторую 
+информацию о текущей комнате."""
 class LevelMap:
     def __init__(self, free_tiles):
         self.free_tiles = free_tiles
@@ -142,7 +149,7 @@ class LevelMap:
         self.curr_room.render(screen)
         self.block_edges()
         self.treasure_taken()
-        map_net = pygame.image.load("data/images/map_net.png")
+        map_net = pygame.image.load("data/images/screen/map_net.png")
         clearCheck = {False: (76, 173, 105),
                       True: (103, 239, 146)}
         for y in range(3):
@@ -165,6 +172,7 @@ class LevelMap:
     def get_curr_room(self):
         return self.cr_yx
 
+    """Метод, который блокирует выходы из комнаты, ведущие за карту"""
     def block_edges(self):
         clears = sum([sum([j.clear for j in i]) for i in self.map])
         if self.cr_yx[0] - 1 not in range(3) and self.cr_yx != (1, 3):
@@ -203,6 +211,7 @@ class LevelMap:
             screen.blit(image, (12 * TILE_SIZE + 20, 8 * TILE_SIZE + 20))
 
 
+"""Класс, реализующий врагов"""
 class Enemy:
     def __init__(self, position):
         self.hp = 5
@@ -251,7 +260,7 @@ class Boss(Enemy):
         self.bossbar_image = pygame.image.load("data/images/enemy/scarecrow/bossbar.png")
         self.change_pic("scarecrow/scarecrow.png")
         self.area = [(12, 8), (12, 7)]
-        self.first_phase_state = 0
+        self.first_phase_state = 0  # текущее местоположение босса в первой фазе
         self.fph_place = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
 
     def get_position(self):
@@ -295,6 +304,7 @@ class BossHayfork(Enemy):
         self.hp = 999
         self.change_pic("scarecrow/hollow.png")
 
+    """Метод, меняющий состояние вил"""
     def check_state(self):
         self.state += 1
         self.state %= 15
@@ -306,6 +316,7 @@ class BossHayfork(Enemy):
             self.change_pic("scarecrow/scarecrow_attack_1.png")
 
 
+"""Класс, реализующий самого игрока и его данные"""
 class Player:
     def __init__(self, position, pic):
         self.x, self.y = position
@@ -330,9 +341,11 @@ class Player:
             screen.blit(self.hp_image, (20 + i * 50, 590))
 
 
+"""Класс, реализующий все оружия и текущее оружие, находящееся у игрока"""
 class Weapon:
     def __init__(self, position):
         with open(f"{WEAPON_DIR}/weapons_data.json") as f:
+            """Открытие файла json который содержит в себе всю информацию об оружиях, уроне и области атаки"""
             self.types = json.load(f)
         self.set_curr_weapon("sword")
         self.attack_area = []
@@ -380,6 +393,7 @@ class Weapon:
         screen.blit(self.info_im, (833, 300))
 
 
+"""Класс для частиц, которые украшают игру"""
 class Particle(pygame.sprite.Sprite):
     def __init__(self, pos, dx, dy, particle, border_rect):
         super().__init__(all_sprites)
@@ -399,6 +413,7 @@ class Particle(pygame.sprite.Sprite):
             self.kill()
 
 
+"""Класс самой игры, который связывает абсолютно все классы в единое, рабочее целое"""
 class Game:
     def __init__(self, player, map, weapon):
         self.player = player
@@ -406,6 +421,7 @@ class Game:
         self.weapon = weapon
         self.boss_music_start = False
         self.boss_defeated = False
+        self.boss_crow_spawn_cooldown = 0
         self.score = 0
 
     def render(self, screen):
@@ -413,6 +429,7 @@ class Game:
         self.player.render(screen)
         self.weapon.render(screen)
 
+    """Управление игрока, передача классу игрока направления, которое поможет определить область атаки"""
     def update_player(self):
         if self.player.hp <= 0:
             self.player.change_pic("hollow.png")
@@ -440,6 +457,7 @@ class Game:
             clock.tick(FPS)
         self.check_move()
 
+    """Метод, реализующий урон по врагам"""
     def check_attack(self, screen):
         if self.player.hp <= 0:
             return
@@ -452,6 +470,8 @@ class Game:
                 if enemy.get_position() in area:
                     enemy.hp -= self.weapon.damage
 
+    """Метод, позволяющий перемещаться по комнатам. Он проверяет нахождение игрока на клетке перехода, меняет
+    комнату и положение игрока"""
     def check_move(self):
         curr = self.map.get_curr_room()
         if self.map.curr_room.get_tile(self.player.get_position()) == 14:
@@ -467,6 +487,7 @@ class Game:
             self.map.change_curr_room((curr[1] + 1, curr[0]))
             self.player.set_position((1, 8))
 
+    """Реализация движение врага. Для каждого врага движение определяется по-своему"""
     def move_enemy(self):
         if self.player.hp <= 0:
             return
@@ -497,6 +518,10 @@ class Game:
             elif enemy.__class__.__name__ == "Boss":
                 if enemy.hp > 115:
                     enemy.first_phase_move()
+                    self.boss_crow_spawn_cooldown += 1
+                    if self.boss_crow_spawn_cooldown >= 20:
+                        self.map.curr_room.enemies.append(Crow((12, 8)))
+                        self.boss_crow_spawn_cooldown = 0
                 else:
                     next_position = self.map.curr_room.crow_path(enemy.get_position()[0],
                                                                  player.get_position())
@@ -513,11 +538,12 @@ class Game:
             elif enemy.__class__.__name__ == "BossHayfork":
                 enemy.check_state()
 
+    """Проверка врагов в комнате, отслеживание их здоровья и смерти. После смерти врага реализованы частицы"""
     def check_room(self):
         if not self.boss_music_start and self.map.cr_yx == (1, 3):
             self.boss_music_start = True
             pygame.mixer.music.load("data/sound/Fever-Pitch.mp3")
-            pygame.mixer.music.set_volume(0.10)
+            pygame.mixer.music.set_volume(0.65)
             pygame.mixer.music.play()
 
         if not self.map.curr_room.clear:
@@ -540,7 +566,7 @@ class Game:
                                                      2 * TILE_SIZE, 3 * TILE_SIZE)
                         self.create_particles(particles_pos, "hay", particles_rect, 30)
                         pygame.mixer.music.load("data/sound/boss_defeated.mp3")
-                        pygame.mixer.music.set_volume(0.10)
+                        pygame.mixer.music.set_volume(0.65)
                         pygame.mixer.music.play()
                         self.score += 1000 * player.hp
                         self.boss_defeated = True
@@ -558,6 +584,7 @@ class Game:
                             self.create_particles(particles_pos, "hay", particles_rect, 10)
                         self.map.curr_room.enemies.remove(enemy)
 
+    """Метод, позволяющий использовать сокровищницы"""
     def check_treasure_room(self):
         if self.map.curr_room.roomID == "treasure_room_1.tmx":
             if self.map.curr_room.get_tile(self.player.get_position()) == 5:
@@ -571,6 +598,7 @@ class Game:
                 self.player.hp = random.randint(6, 9)
                 treasure_open.play()
 
+    """Проверка урона, проходящего по игроку"""
     def check_player_damage(self):
         if self.player.hp <= 0:
             return False
@@ -586,6 +614,7 @@ class Game:
                 return crossed
         return crossed
 
+    """Создание декоративных частиц"""
     def create_particles(self, position, particle, border_rect, count):
         particle_count = count
         numbers = list(range(-5, -1)) + list(range(1, 6))
@@ -594,10 +623,12 @@ class Game:
 
 
 def title(screen):
+
+    """Метод для заставки и обучения"""
+
     screens = 4
 
     pygame.mixer.music.load("data/sound/Main-Menu-3-Snowdin.mp3")
-    pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play()
 
     while screens != 0:
@@ -609,20 +640,22 @@ def title(screen):
                 if event.key == pygame.K_f:
                      screens -= 1
         if screens == 4:
-            image = pygame.image.load("data/images/title.png")
+            image = pygame.image.load("data/images/screen/title.png")
         elif screens == 3:
-            image = pygame.image.load("data/images/tutorial_1.png")
+            image = pygame.image.load("data/images/screen/tutorial_1.png")
         elif screens == 2:
-            image = pygame.image.load("data/images/tutorial_2.png")
+            image = pygame.image.load("data/images/screen/tutorial_2.png")
         elif screens == 1:
-            image = pygame.image.load("data/images/tutorial_3.png")
+            image = pygame.image.load("data/images/screen/tutorial_3.png")
         screen.blit(image, (0, 0))
         pygame.display.flip()
 
 
 def main():
+
+    """Основной метод, который обрабатывает события, взаимодействует с классом игры, а также реализует конец игры"""
+
     pygame.mixer.music.load("data/sound/Mort-s-Farm-Fun-Farm.mp3")
-    pygame.mixer.music.set_volume(0.25)
     pygame.mixer.music.play()
 
     waiting = 0
@@ -638,6 +671,7 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                pygame.quit()
             if event.type == ENEMY_EVENT_TYPE:
                 game.move_enemy()
             if game.check_player_damage():
@@ -689,9 +723,11 @@ def main():
     if game_over:
         pygame.mixer.music.load("data/sound/game_over.mp3")
         pygame.mixer.music.play()
-        image = pygame.image.load("data/images/game_over.png")
+        image = pygame.image.load("data/images/screen/game_over.png")
     else:
-        print("damn good :)")
+        pygame.mixer.music.load("data/sound/win_screen.mp3")
+        pygame.mixer.music.play()
+        image = pygame.image.load("data/images/screen/you_won.png")
 
     while running_endscreen:
         for event in pygame.event.get():
@@ -701,11 +737,17 @@ def main():
                 if event.key == pygame.K_f:
                     running_endscreen = False
         screen.blit(image, (0, 0))
+        if not game_over:
+            for n in range(len(str(game.score))):
+                im = pygame.image.load(f"data/images/score_numbers/{str(game.score)[n]}.png")
+                screen.blit(im, (525 + 40 * n, 125 - 2 * n))
         pygame.display.flip()
         clock.tick(FPS)
 
 
 def start_game(screen):
+    """Метод, связывающий метод заставки и главный метод, а также делает возможным рестарт игры"""
+
     will_replay = True
 
     title(screen)
